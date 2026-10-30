@@ -1,0 +1,66 @@
+# ---------------------------------------------------------------------------
+# Terraform
+# ---------------------------------------------------------------------------
+# Provider plugins and module cache (downloaded by `terraform init`)
+**/.terraform/*
+
+# State files: contain resource IDs, IPs, and sometimes secrets in plain text.
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Variable files hold YOUR values (emails, IPs, account details).
+# Only the *.example templates are committed.
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Local override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Saved plan files can contain sensitive values
+*.tfplan
+tfplan
+*.plan
+
+# CLI config
+.terraformrc
+terraform.rc
+
+# NOTE: .terraform.lock.hcl is intentionally NOT ignored. Commit it so every
+# machine and CI run uses the exact same provider versions.
+
+# ---------------------------------------------------------------------------
+# Secrets and credentials - never commit these
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+.aws/
+credentials
+*.secret
+
+# ---------------------------------------------------------------------------
+# Tooling / OS
+# ---------------------------------------------------------------------------
+.localstack/
+volume/
+results.sarif
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/

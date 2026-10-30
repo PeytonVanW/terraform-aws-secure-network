@@ -1,0 +1,29 @@
+# Runs automatically on every `git commit` once you run `pre-commit install`.
+# Blocks the commit if a secret is detected or Terraform is malformed.
+# Update hook versions any time with:  pre-commit autoupdate
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: detect-private-key
+      - id: detect-aws-credentials
+        args: ["--allow-missing-credentials"]
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.109.3
+    hooks:
+      - id: terraform_fmt
+      - id: terraform_validate
+        args: ["--hook-config=--retry-once-with-cleanup=true"]
+      - id: terraform_tflint
+        args: ["--args=--config=__GIT_WORKING_DIR__/.tflint.hcl"]
