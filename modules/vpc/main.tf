@@ -11,6 +11,26 @@
 # -----------------------------------------------------------------------------
 
 locals {
+  # Third-octet offsets per tier, so addresses are easy to read at a glance:
+  #   public 10.0.0.x-10.0.2.x, app 10.0.10.x-..., data 10.0.20.x-...
+  tier_offsets = {
+    public = 0
+    app    = 10
+    data   = 20
+  }
+
+  # Flatten tier x AZ into one map keyed like "public-a", "app-b", "data-a".
+  subnets = merge([
+    for tier, offset in local.tier_offsets : {
+      for idx, az in var.availability_zones :
+      "${tier}-${substr(az, -1, 1)}" => {
+        tier = tier
+        az   = az
+        cidr = cidrsubnet(var.vpc_cidr, var.subnet_newbits, offset + idx)
+      }
+    }
+  ]...)
+
   common_tags = merge(var.tags, {
     Module = "vpc"
   })
@@ -35,4 +55,24 @@ resource "aws_default_security_group" "this" {
 
   # No ingress or egress blocks = deny everything.
   tags = merge(local.common_tags, { Name = "${var.name}-default-sg-locked" })
+}
+
+# -----------------------------------------------------------------------------
+# Subnets (one resource, many instances, driven by local.subnets)
+# -----------------------------------------------------------------------------
+resource "aws_subnet" "this" {
+  for_each = local.subnets
+
+  vpc_id            = aws_vpc.this.id
+  cidr_block        = each.value.cidr
+  availability_zone = each.value.az
+
+  # Never hand out public IPv4 addresses automatically. AWS charges for every
+  # public IPv4 address, and it is safer to opt in explicitly.
+  map_public_ip_on_launch = false
+
+  tags = merge(local.common_tags, {
+    Name = "${var.name}-${each.key}"
+    Tier = each.value.tier
+  })
 }
