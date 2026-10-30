@@ -37,6 +37,10 @@ terraform.rc
 # NOTE: .terraform.lock.hcl is intentionally NOT ignored. Commit it so every
 # machine and CI run uses the exact same provider versions.
 
+# ...except inside reusable modules: the pre-commit validate hook creates
+# them there, but only environments/ pin provider versions.
+modules/**/.terraform.lock.hcl
+
 # ---------------------------------------------------------------------------
 # Secrets and credentials - never commit these
 # ---------------------------------------------------------------------------
