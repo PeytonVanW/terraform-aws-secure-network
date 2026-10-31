@@ -76,3 +76,81 @@ resource "aws_subnet" "this" {
     Tier = each.value.tier
   })
 }
+
+# -----------------------------------------------------------------------------
+# Internet Gateway + public route table
+# -----------------------------------------------------------------------------
+resource "aws_internet_gateway" "this" {
+  vpc_id = aws_vpc.this.id
+  tags   = merge(local.common_tags, { Name = "${var.name}-igw" })
+}
+
+resource "aws_route_table" "tier" {
+  for_each = local.tier_offsets
+
+  vpc_id = aws_vpc.this.id
+  tags   = merge(local.common_tags, { Name = "${var.name}-${each.key}-rt", Tier = each.key })
+}
+
+# Equivalent to: ip route 0.0.0.0 0.0.0.0 <igw>
+resource "aws_route" "public_default" {
+  route_table_id         = aws_route_table.tier["public"].id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.this.id
+}
+
+resource "aws_route_table_association" "this" {
+  for_each = local.subnets
+
+  subnet_id      = aws_subnet.this[each.key].id
+  route_table_id = aws_route_table.tier[each.value.tier].id
+}
+
+# -----------------------------------------------------------------------------
+# Optional NAT gateway for the app tier (disabled by default: it costs money)
+# -----------------------------------------------------------------------------
+resource "aws_eip" "nat" {
+  count  = var.enable_nat_gateway ? 1 : 0
+  domain = "vpc"
+  tags   = merge(local.common_tags, { Name = "${var.name}-nat-eip" })
+}
+
+resource "aws_nat_gateway" "this" {
+  count = var.enable_nat_gateway ? 1 : 0
+
+  allocation_id = aws_eip.nat[0].id
+  subnet_id     = aws_subnet.this["public-${substr(var.availability_zones[0], -1, 1)}"].id
+  tags          = merge(local.common_tags, { Name = "${var.name}-nat" })
+
+  depends_on = [aws_internet_gateway.this]
+}
+
+# Equivalent to: ip route 0.0.0.0 0.0.0.0 <nat>  (only when NAT is enabled)
+resource "aws_route" "app_default_via_nat" {
+  count = var.enable_nat_gateway ? 1 : 0
+
+  route_table_id         = aws_route_table.tier["app"].id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.this[0].id
+}
+
+# NOTE: the data tier route table intentionally has no default route.
+# It only has the implicit "local" route for the VPC CIDR - the cloud
+# equivalent of a stub network with no gateway of last resort.
+
+# -----------------------------------------------------------------------------
+# S3 gateway endpoint (free) - private tiers reach S3 without the internet
+# -----------------------------------------------------------------------------
+resource "aws_vpc_endpoint" "s3" {
+  count = var.enable_s3_gateway_endpoint ? 1 : 0
+
+  vpc_id            = aws_vpc.this.id
+  service_name      = "com.amazonaws.${var.region}.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids = [
+    aws_route_table.tier["app"].id,
+    aws_route_table.tier["data"].id,
+  ]
+
+  tags = merge(local.common_tags, { Name = "${var.name}-s3-endpoint" })
+}
