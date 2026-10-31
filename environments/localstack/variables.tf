@@ -27,3 +27,9 @@ variable "availability_zones" {
   type        = list(string)
   default     = ["us-east-1a", "us-east-1b"]
 }
+
+variable "admin_cidrs" {
+  description = "CIDRs allowed to SSH to the web tier. Leave empty to disable SSH."
+  type        = list(string)
+  default     = []
+}
