@@ -59,6 +59,11 @@ variable "admin_cidrs" {
     condition     = alltrue([for c in var.admin_cidrs : can(cidrhost(c, 0))])
     error_message = "Every admin_cidrs entry must be a valid CIDR."
   }
+
+  validation {
+    condition     = !contains(var.admin_cidrs, "0.0.0.0/0")
+    error_message = "Refusing to open SSH to the entire internet (0.0.0.0/0). Use your own IP /32."
+  }
 }
 
 variable "enable_s3_access" {
