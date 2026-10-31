@@ -70,3 +70,9 @@ variable "enable_nat_gateway" {
   type        = bool
   default     = false
 }
+
+variable "enable_s3_gateway_endpoint" {
+  description = "Create a free S3 gateway endpoint so private tiers reach S3 without a NAT gateway."
+  type        = bool
+  default     = true
+}
