@@ -105,3 +105,35 @@ resource "aws_route_table_association" "this" {
   subnet_id      = aws_subnet.this[each.key].id
   route_table_id = aws_route_table.tier[each.value.tier].id
 }
+
+# -----------------------------------------------------------------------------
+# Optional NAT gateway for the app tier (disabled by default: it costs money)
+# -----------------------------------------------------------------------------
+resource "aws_eip" "nat" {
+  count  = var.enable_nat_gateway ? 1 : 0
+  domain = "vpc"
+  tags   = merge(local.common_tags, { Name = "${var.name}-nat-eip" })
+}
+
+resource "aws_nat_gateway" "this" {
+  count = var.enable_nat_gateway ? 1 : 0
+
+  allocation_id = aws_eip.nat[0].id
+  subnet_id     = aws_subnet.this["public-${substr(var.availability_zones[0], -1, 1)}"].id
+  tags          = merge(local.common_tags, { Name = "${var.name}-nat" })
+
+  depends_on = [aws_internet_gateway.this]
+}
+
+# Equivalent to: ip route 0.0.0.0 0.0.0.0 <nat>  (only when NAT is enabled)
+resource "aws_route" "app_default_via_nat" {
+  count = var.enable_nat_gateway ? 1 : 0
+
+  route_table_id         = aws_route_table.tier["app"].id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.this[0].id
+}
+
+# NOTE: the data tier route table intentionally has no default route.
+# It only has the implicit "local" route for the VPC CIDR - the cloud
+# equivalent of a stub network with no gateway of last resort.

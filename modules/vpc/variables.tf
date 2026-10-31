@@ -64,3 +64,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "enable_nat_gateway" {
+  description = "Create a NAT gateway so the app tier can reach the internet. COSTS MONEY (~$33+/month). Off by default."
+  type        = bool
+  default     = false
+}
