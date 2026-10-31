@@ -45,7 +45,9 @@ locals {
     local.app_needs_https_out ? [{ tier = "app", egress = true, rule_number = 300, action = "allow", protocol = "tcp", from = 443, to = 443, cidr = "0.0.0.0/0" }] : [],
 
     # ============================ DATA tier ==================================
-    # inbound
+    # inbound: explicit DENY from the web tier comes first (lower number),
+    # exactly like putting a deny line above the permits in an IOS ACL.
+    [for i, c in local.public_cidrs : { tier = "data", egress = false, rule_number = 50 + i, action = "deny", protocol = "-1", from = 0, to = 0, cidr = c }],
     [for i, c in local.app_cidrs : { tier = "data", egress = false, rule_number = 100 + i, action = "allow", protocol = "tcp", from = var.db_port, to = var.db_port, cidr = c }],
     # outbound: replies to the app tier only
     [for i, c in local.app_cidrs : { tier = "data", egress = true, rule_number = 100 + i, action = "allow", protocol = "tcp", from = local.ephemeral_from, to = local.ephemeral_to, cidr = c }],
