@@ -1,0 +1,16 @@
+# cp terraform.tfvars.example terraform.tfvars
+
+region             = "us-east-1"
+name               = "lab"
+availability_zones = ["us-east-1a", "us-east-1b"]
+
+# Set this so AWS emails you before you spend money. Your real address goes in
+# terraform.tfvars, which git ignores.
+budget_alert_email = "you@example.com"
+monthly_budget_usd = 1
+
+# Your public IP as a /32 to allow SSH, e.g. ["203.0.113.10/32"]. Empty means no SSH rules.
+admin_cidrs = []
+
+enable_flow_logs   = false
+enable_nat_gateway = false # billed hourly, only turn on for a same-day test
