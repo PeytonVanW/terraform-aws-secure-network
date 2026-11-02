@@ -1,14 +1,11 @@
-# -----------------------------------------------------------------------------
-# Security groups: STATEFUL, attached to network interfaces.
+# Security groups are stateful and attach to network interfaces, so return
+# traffic is allowed automatically (like a Cisco reflexive ACL or a stateful
+# firewall).
 #
-# Design: "security group chaining". Each tier only accepts traffic from the
-# security group of the tier directly in front of it, never from raw CIDRs.
+# Each tier only accepts traffic from the security group of the tier in front
+# of it, never from a raw CIDR. The rules keep working when IPs change.
 #
 #   internet --443--> web-sg --app_port--> app-sg --db_port--> db-sg
-#
-# Because security groups are stateful, return traffic is allowed
-# automatically (like a Cisco reflexive ACL or a stateful firewall).
-# -----------------------------------------------------------------------------
 
 locals {
   common_tags = merge(var.tags, { Module = "security" })
@@ -20,7 +17,8 @@ resource "aws_security_group" "web" {
   description = "Web tier: HTTPS from the internet, optional SSH from admin IPs"
   vpc_id      = var.vpc_id
   tags        = merge(local.common_tags, { Name = "${var.name}-web-sg", Tier = "public" })
-
+  # Create the replacement group before deleting the old one. AWS won't delete
+  # a group that's still attached, and the tier is never left without rules.
   lifecycle {
     create_before_destroy = true
   }
@@ -50,8 +48,7 @@ resource "aws_security_group" "db" {
   }
 }
 
-# ----------------------------- web tier --------------------------------------
-
+# Web tier rules
 resource "aws_vpc_security_group_ingress_rule" "web_https" {
   security_group_id = aws_security_group.web.id
   description       = "HTTPS from anywhere"
@@ -90,8 +87,7 @@ resource "aws_vpc_security_group_egress_rule" "web_https_out" {
   cidr_ipv4         = "0.0.0.0/0"
 }
 
-# ----------------------------- app tier --------------------------------------
-
+# App tier rules
 resource "aws_vpc_security_group_ingress_rule" "app_from_web" {
   security_group_id            = aws_security_group.app.id
   description                  = "App port from the web tier only"
@@ -139,8 +135,7 @@ resource "aws_vpc_security_group_egress_rule" "app_https_internet" {
   cidr_ipv4         = "0.0.0.0/0"
 }
 
-# ----------------------------- data tier -------------------------------------
-
+# Data tier rules
 resource "aws_vpc_security_group_ingress_rule" "db_from_app" {
   security_group_id            = aws_security_group.db.id
   description                  = "Database port from the app tier only"
@@ -150,6 +145,6 @@ resource "aws_vpc_security_group_ingress_rule" "db_from_app" {
   referenced_security_group_id = aws_security_group.app.id
 }
 
-# The data tier has NO egress rules on purpose. Security groups are stateful,
-# so replies to the app tier still flow, but the database can never start a
-# new outbound connection (blocks data exfiltration and callbacks).
+# The data tier has no egress rules on purpose. Replies to the app tier still
+# flow because security groups are stateful, but the database can't open a new
+# outbound connection. That blocks data exfiltration and callbacks.
