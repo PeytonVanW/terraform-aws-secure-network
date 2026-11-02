@@ -41,3 +41,35 @@ module "flow_logs" {
   name   = var.name
   vpc_id = module.vpc.vpc_id
 }
+
+# Cost guardrail for a $0 lab. AWS Budgets emails me before a surprise bill,
+# and AWS doesn't charge for the first couple of budgets. No email set means
+# no budget, so the address never has to live in the repo.
+resource "aws_budgets_budget" "monthly" {
+  count = var.budget_alert_email == "" ? 0 : 1
+
+  name         = "${var.name}-monthly-guardrail"
+  budget_type  = "COST"
+  limit_amount = tostring(var.monthly_budget_usd)
+  limit_unit   = "USD"
+  time_unit    = "MONTHLY"
+
+  # Early warning at 50% of actual spend, while there's still time to destroy.
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 50
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
+    subscriber_email_addresses = [var.budget_alert_email]
+  }
+
+  # Fires when AWS forecasts the month will pass 100%, which catches a
+  # resource left running.
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "FORECASTED"
+    subscriber_email_addresses = [var.budget_alert_email]
+  }
+}

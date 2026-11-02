@@ -39,3 +39,15 @@ variable "enable_nat_gateway" {
   type        = bool
   default     = false
 }
+
+variable "budget_alert_email" {
+  description = "Email for AWS Budgets alerts. Set in terraform.tfvars (git-ignored). Empty = no budget created."
+  type        = string
+  default     = ""
+}
+
+variable "monthly_budget_usd" {
+  description = "Monthly spend that triggers an alert email."
+  type        = number
+  default     = 1
+}
