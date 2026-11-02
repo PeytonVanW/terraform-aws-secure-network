@@ -33,3 +33,9 @@ variable "admin_cidrs" {
   type        = list(string)
   default     = []
 }
+
+variable "enable_flow_logs" {
+  description = "Create VPC flow logs."
+  type        = bool
+  default     = true
+}
