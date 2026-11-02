@@ -1,18 +1,15 @@
-# -----------------------------------------------------------------------------
-# VPC module: a three-tier, multi-AZ network.
+# Three-tier VPC spread across availability zones, so losing one AZ doesn't take everything down.
 #
-#   public (web) tier  -> route to the Internet Gateway (like a default route
-#                         pointing at an ISP-facing edge router)
-#   app tier           -> private; optional default route via NAT gateway
-#   data tier          -> isolated; NO default route at all (local VPC only)
+#   web tier:  public, default route to the Internet Gateway (like a default route toward an ISP edge router)
+#   app tier:  private, gets out only through an optional NAT gateway
+#   data tier: isolated, no default route, can only talk inside the VPC
 #
-# Subnet addressing is calculated with cidrsubnet() so the plan is
-# predictable and documented. See docs/ccna-to-aws.md for the subnet table.
-# -----------------------------------------------------------------------------
+# cidrsubnet() builds the subnets, so the address plan is predictable.
+# docs/ccna-to-aws.md has the full subnet table.
 
 locals {
-  # Third-octet offsets per tier, so addresses are easy to read at a glance:
-  #   public 10.0.0.x-10.0.2.x, app 10.0.10.x-..., data 10.0.20.x-...
+  # Each tier gets its own third octet, so you can tell the tier from the IP:
+  # public 10.0.0.x to 10.0.2.x, app starts at 10.0.10.x, data starts at 10.0.20.x
   tier_offsets = {
     public = 0
     app    = 10
@@ -36,9 +33,6 @@ locals {
   })
 }
 
-# -----------------------------------------------------------------------------
-# VPC
-# -----------------------------------------------------------------------------
 resource "aws_vpc" "this" {
   # checkov:skip=CKV2_AWS_11:Flow logs are created by modules/flow-logs and wired in each environment; Checkov cannot follow cross-module references.
   cidr_block           = var.vpc_cidr
@@ -48,8 +42,8 @@ resource "aws_vpc" "this" {
   tags = merge(local.common_tags, { Name = "${var.name}-vpc" })
 }
 
-# Lock down the default security group so nothing can accidentally use it.
-# (CIS AWS Foundations Benchmark: default SG must restrict all traffic.)
+# Lock down the default security group so nothing lands in it by accident.
+# The CIS AWS Foundations Benchmark requires this.
 resource "aws_default_security_group" "this" {
   vpc_id = aws_vpc.this.id
 
@@ -57,9 +51,7 @@ resource "aws_default_security_group" "this" {
   tags = merge(local.common_tags, { Name = "${var.name}-default-sg-locked" })
 }
 
-# -----------------------------------------------------------------------------
-# Subnets (one resource, many instances, driven by local.subnets)
-# -----------------------------------------------------------------------------
+# One subnet resource with an instance per tier and AZ, built from local.subnets.
 resource "aws_subnet" "this" {
   for_each = local.subnets
 
@@ -77,9 +69,7 @@ resource "aws_subnet" "this" {
   })
 }
 
-# -----------------------------------------------------------------------------
-# Internet Gateway + public route table
-# -----------------------------------------------------------------------------
+# Internet Gateway and one route table per tier.
 resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
   tags   = merge(local.common_tags, { Name = "${var.name}-igw" })
@@ -106,9 +96,7 @@ resource "aws_route_table_association" "this" {
   route_table_id = aws_route_table.tier[each.value.tier].id
 }
 
-# -----------------------------------------------------------------------------
-# Optional NAT gateway for the app tier (disabled by default: it costs money)
-# -----------------------------------------------------------------------------
+# NAT gateway for the app tier. Off by default because AWS bills it by the hour.
 resource "aws_eip" "nat" {
   count  = var.enable_nat_gateway ? 1 : 0
   domain = "vpc"
@@ -134,13 +122,11 @@ resource "aws_route" "app_default_via_nat" {
   nat_gateway_id         = aws_nat_gateway.this[0].id
 }
 
-# NOTE: the data tier route table intentionally has no default route.
-# It only has the implicit "local" route for the VPC CIDR - the cloud
-# equivalent of a stub network with no gateway of last resort.
+# The data tier route table has no default route on purpose. It only has the
+# implicit local route for the VPC CIDR, like a stub network with no gateway
+# of last resort.
 
-# -----------------------------------------------------------------------------
-# S3 gateway endpoint (free) - private tiers reach S3 without the internet
-# -----------------------------------------------------------------------------
+# S3 gateway endpoint. It's free, and the private tiers reach S3 without touching the internet.
 resource "aws_vpc_endpoint" "s3" {
   count = var.enable_s3_gateway_endpoint ? 1 : 0
 
