@@ -1,0 +1,17 @@
+# Opens a pull request when a GitHub Action or the AWS provider has a new
+# version, so security fixes don't sit unnoticed. Monthly keeps the noise low
+# for a small repo. Both environments are listed because each one has its own
+# lock file pinning the provider.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: terraform
+    directories:
+      - /environments/localstack
+      - /environments/aws
+    schedule:
+      interval: monthly
