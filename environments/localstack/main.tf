@@ -25,3 +25,11 @@ module "security" {
   enable_s3_access  = true
   s3_prefix_list_id = module.vpc.s3_prefix_list_id
 }
+
+module "flow_logs" {
+  source = "../../modules/flow-logs"
+  count  = var.enable_flow_logs ? 1 : 0
+
+  name   = var.name
+  vpc_id = module.vpc.vpc_id
+}

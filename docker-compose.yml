@@ -1,0 +1,22 @@
+# LocalStack runs a fake AWS on this machine, so every apply in the lab costs $0.
+#
+# Since March 2026 LocalStack needs a free auth token (Hobby plan, or the
+# Student plan through the GitHub Student Developer Pack). Get one at
+# https://app.localstack.cloud and export it in your shell, never in this repo:
+#
+#   export LOCALSTACK_AUTH_TOKEN="ls-..."     # goes in ~/.bashrc
+#
+# Then:  make local-up
+services:
+  localstack:
+    container_name: localstack
+    image: localstack/localstack:latest # pin a release tag once a version is known to work
+    ports:
+      - "127.0.0.1:4566:4566" # localhost only, so nothing else on the LAN can reach it
+    environment:
+      # :? stops compose with an error if the token isn't set
+      - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN:?Set LOCALSTACK_AUTH_TOKEN in your shell first}
+      # only the services Terraform uses here
+      - SERVICES=ec2,iam,logs,s3,sts
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"

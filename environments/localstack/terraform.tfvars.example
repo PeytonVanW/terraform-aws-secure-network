@@ -1,0 +1,10 @@
+# cp terraform.tfvars.example terraform.tfvars
+
+name               = "lab"
+vpc_cidr           = "10.0.0.0/16"
+availability_zones = ["us-east-1a", "us-east-1b"]
+
+# To get SSH rules, put your public IP here as a /32, e.g. ["203.0.113.10/32"]
+admin_cidrs = []
+
+enable_flow_logs = true
